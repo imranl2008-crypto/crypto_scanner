@@ -1,26 +1,27 @@
-﻿import requests
+﻿import ccxt
 
 def get_top_coins_universe(limit=300, quote="USDT"):
-    print(f"Fetching top {limit} coins from CoinGecko...")
-    top_symbols = []
-    per_page = 250
-    pages = (limit // per_page) + (1 if limit % per_page != 0 else 0)
+    print(f"Fetching top {limit} coins from KuCoin...")
+    exchange = ccxt.kucoin({
+        'enableRateLimit': True
+    })
+    exchange.load_markets()
     
-    for page in range(1, pages + 1):
-        url = f"https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page={per_page}&page={page}&sparkline=false"
-        try:
-            response = requests.get(url, timeout=10)
-            if response.status_code == 200:
-                data = response.json()
-                for coin in data:
-                    symbol = coin['symbol'].upper() + f"/{quote}"
-                    if symbol not in top_symbols:
-                        top_symbols.append(symbol)
-            else:
-                print(f"CoinGecko API error on page {page}: {response.status_code}")
-        except Exception as e:
-            print(f"Error fetching CoinGecko data: {e}")
-            
-    top_symbols = top_symbols[:limit]
-    print(f"Successfully loaded {len(top_symbols)} coins from CoinGecko.")
+    symbols_data = []
+    for symbol, market in exchange.markets.items():
+        if market.get('spot') and market.get('quote') == quote and market.get('active'):
+            try:
+                ticker = exchange.fetch_ticker(symbol)
+                quote_volume = ticker.get('quoteVolume') or 0
+                symbols_data.append({
+                    'symbol': symbol,
+                    'volume': quote_volume
+                })
+            except Exception:
+                continue
+                
+    symbols_data.sort(key=lambda x: x['volume'], reverse=True)
+    top_symbols = [item['symbol'] for item in symbols_data[:limit]]
+    
+    print(f"Successfully loaded {len(top_symbols)} coins from KuCoin.")
     return top_symbols
