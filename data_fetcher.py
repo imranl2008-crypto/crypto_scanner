@@ -2,7 +2,7 @@
 import pandas as pd
 
 def fetch_ohlcv_data(symbol, timeframe="6h", limit=100):
-    exchange = ccxt.bybit({
+    exchange = ccxt.gate({
         'enableRateLimit': True
     })
     try:
@@ -11,5 +11,5 @@ def fetch_ohlcv_data(symbol, timeframe="6h", limit=100):
         df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
         return df
     except Exception as e:
-        print(f"Error fetching data for {symbol}: {e}")
+        print(f"Error fetching data for {symbol} from Gate.io: {e}")
         return None
