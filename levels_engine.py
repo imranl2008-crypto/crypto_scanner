@@ -1,5 +1,21 @@
 ﻿import numpy as np
 import pandas as pd
+import math
+
+
+def _adaptive_round(price, sig_figs=6):
+    """
+    Round to a fixed number of significant figures rather than a fixed
+    number of decimal places. A flat round(x, 4) works fine for BTC-like
+    prices but collapses very small prices (e.g. PEPE at ~0.0000083) down
+    to 0.0 -- which then causes a division-by-zero later in signal_engine.py
+    when distance = abs(current_price - level) / level is computed.
+    """
+    if price == 0 or price is None:
+        return 0.0
+    magnitude = math.floor(math.log10(abs(price)))
+    decimals = max(0, sig_figs - magnitude - 1)
+    return round(price, decimals)
 
 
 def compute_support_resistance_levels(df, num_bins=50):
@@ -13,11 +29,6 @@ def compute_support_resistance_levels(df, num_bins=50):
     volume_profile = df.groupby('price_bin')['volume'].sum()
     hvn_bins = volume_profile.nlargest(5).index.tolist()
 
-    # price_bin can come back as float64 (with possible NaN) because
-    # pd.cut(labels=False) assigns NaN to any close price outside the bin
-    # range, which forces pandas to upcast the whole column to float since
-    # an int column can't hold NaN. Drop any NaNs and cast to int before
-    # using these as array indices below.
     hvn_bins = [int(b) for b in hvn_bins if pd.notna(b)]
 
     hvn_levels = [float((bins[b] + bins[b + 1]) / 2) for b in hvn_bins if b + 1 < len(bins)]
@@ -63,7 +74,7 @@ def compute_support_resistance_levels(df, num_bins=50):
         score = touches * 2 + (1 if level in hvn_levels else 0)
 
         scored_levels.append({
-            "level": round(level, 4),
+            "level": _adaptive_round(level),
             "type": level_type,
             "score": int(score),
             "touches": touches
